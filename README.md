@@ -1,1 +1,1 @@
-# motif-lab
+Motif Lab is an algorithmic composition engine that treats musical ideas as compressible, transformable, and searchable structures. It explores how concepts from dynamic programming, graph theory, formal grammars, and compression can become tools for composition, especially for musicians working away from physical instruments.
