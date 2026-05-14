@@ -1,7 +1,8 @@
+use crate::algorithms::similarity::compare_motifs;
 use crate::algorithms::transform::{augment, diminish, invert, retrograde, transpose};
 use crate::core::Pitch;
 use crate::io::parse::parse_motif;
-use crate::io::print::{format_analysis, format_motif};
+use crate::io::print::{format_analysis, format_motif, format_similarity};
 use clap::{Args, Parser, Subcommand};
 use std::fs;
 use std::path::PathBuf;
@@ -18,6 +19,10 @@ pub struct Cli {
 enum Command {
     Analyze { path: PathBuf },
     Transform(TransformArgs),
+    Compare {
+        left_path: PathBuf,
+        right_path: PathBuf,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -80,6 +85,18 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             }
 
             println!("{}", format_motif(&motif));
+        }
+        Command::Compare {
+            left_path,
+            right_path,
+        } => {
+            let left_input = fs::read_to_string(left_path)?;
+            let right_input = fs::read_to_string(right_path)?;
+            let left = parse_motif(&left_input)?;
+            let right = parse_motif(&right_input)?;
+            let result = compare_motifs(&left, &right);
+
+            println!("{}", format_similarity(&result));
         }
     }
 
