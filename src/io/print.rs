@@ -35,3 +35,11 @@ fn format_intervals(intervals: &[i32]) -> String {
         .join(" ")
 }
 
+pub fn format_motif(motif: &Motif) -> String {
+    motif
+        .notes
+        .iter()
+        .map(|note| format!("{}:{}", note.pitch, note.duration))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
