@@ -1,8 +1,11 @@
+use crate::algorithms::compression::repeated_patterns;
 use crate::algorithms::similarity::compare_motifs;
 use crate::algorithms::transform::{augment, diminish, invert, retrograde, transpose};
 use crate::core::Pitch;
 use crate::io::parse::parse_motif;
-use crate::io::print::{format_analysis, format_motif, format_similarity};
+use crate::io::print::{
+    format_analysis, format_compression_candidates, format_motif, format_similarity,
+};
 use clap::{Args, Parser, Subcommand};
 use std::fs;
 use std::path::PathBuf;
@@ -23,6 +26,7 @@ enum Command {
         left_path: PathBuf,
         right_path: PathBuf,
     },
+    Compress { path: PathBuf },
 }
 
 #[derive(Debug, Args)]
@@ -97,6 +101,13 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let result = compare_motifs(&left, &right);
 
             println!("{}", format_similarity(&result));
+        }
+        Command::Compress { path } => {
+            let input = fs::read_to_string(path)?;
+            let motif = parse_motif(&input)?;
+            let candidates = repeated_patterns(&motif);
+
+            println!("{}", format_compression_candidates(&candidates));
         }
     }
 

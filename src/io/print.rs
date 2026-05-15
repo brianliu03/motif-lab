@@ -1,6 +1,7 @@
+use crate::algorithms::compression::{CompressionCandidate, Pattern};
 use crate::algorithms::transform::{contour, intervals};
 use crate::algorithms::similarity::{AlignmentStep, SimilarityResult};
-use crate::core::{Motif, Note};
+use crate::core::{Motif, Note, Beats};
 
 pub fn format_analysis(motif: &Motif) -> String {
     let range = motif
@@ -61,6 +62,28 @@ pub fn format_similarity(result: &SimilarityResult) -> String {
     )
 }
 
+pub fn format_compression_candidates(candidates: &[CompressionCandidate]) -> String {
+    if candidates.is_empty() {
+        return "No repeated patterns found.".to_string();
+    }
+
+    let mut lines = vec!["Repeated patterns:".to_string()];
+
+    for (index, candidate) in candidates.iter().take(8).enumerate() {
+        lines.push(format!(
+            "{}. {} | length {} | occurrences {} | starts {:?} | savings {}",
+            index + 1,
+            format_pattern(&candidate.pattern),
+            candidate.length,
+            candidate.occurrence_count,
+            candidate.start_indices,
+            candidate.savings_score
+        ));
+    }
+
+    lines.join("\n")
+}
+
 fn format_alignment_row<'a>(
     alignment: &'a [AlignmentStep],
     note: impl Fn(&'a AlignmentStep) -> Option<&'a Note>,
@@ -74,4 +97,19 @@ fn format_alignment_row<'a>(
 
 fn format_note(note: &Note) -> String {
     format!("{}:{}", note.pitch, note.duration)
+}
+
+fn format_pattern(pattern: &Pattern) -> String {
+    match pattern {
+        Pattern::Notes(notes) => notes
+            .iter()
+            .map(|note| format!("{}:{}", note.pitch, format_beats(note.duration)))
+            .collect::<Vec<_>>()
+            .join(" "),
+        Pattern::Intervals(intervals) => format!("intervals [{}]", format_intervals(intervals)),
+    }
+}
+
+fn format_beats(beats: Beats) -> String {
+    beats.to_string()
 }
