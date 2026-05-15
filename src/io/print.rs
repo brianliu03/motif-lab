@@ -1,7 +1,8 @@
 use crate::algorithms::compression::{CompressionCandidate, Pattern};
-use crate::algorithms::transform::{contour, intervals};
+use crate::algorithms::graph::TransitionGraph;
 use crate::algorithms::similarity::{AlignmentStep, SimilarityResult};
-use crate::core::{Motif, Note, Beats};
+use crate::algorithms::transform::{contour, intervals};
+use crate::core::{Beats, Motif, Note, Pitch};
 
 pub fn format_analysis(motif: &Motif) -> String {
     let range = motif
@@ -82,6 +83,38 @@ pub fn format_compression_candidates(candidates: &[CompressionCandidate]) -> Str
     }
 
     lines.join("\n")
+}
+
+pub fn format_transition_graph(graph: &TransitionGraph) -> String {
+    if graph.edges.is_empty() {
+        return "No transitions found.".to_string();
+    }
+
+    let mut lines = vec!["Transitions:".to_string()];
+    for (from, targets) in &graph.edges {
+        let transitions = targets
+            .iter()
+            .map(|(to, count)| format!("{to} ({count})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        lines.push(format!("{from} -> {transitions}"));
+    }
+
+    lines.join("\n")
+}
+
+pub fn format_pitch_walk(walk: &[Pitch]) -> String {
+    if walk.is_empty() {
+        return "Walk:".to_string();
+    }
+
+    format!(
+        "Walk:\n{}",
+        walk.iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
 }
 
 fn format_alignment_row<'a>(

@@ -1,10 +1,12 @@
 use crate::algorithms::compression::repeated_patterns;
+use crate::algorithms::graph::{transition_graph, weighted_walk};
 use crate::algorithms::similarity::compare_motifs;
 use crate::algorithms::transform::{augment, diminish, invert, retrograde, transpose};
 use crate::core::Pitch;
 use crate::io::parse::parse_motif;
 use crate::io::print::{
-    format_analysis, format_compression_candidates, format_motif, format_similarity,
+    format_analysis, format_compression_candidates, format_motif, format_pitch_walk,
+    format_similarity, format_transition_graph,
 };
 use clap::{Args, Parser, Subcommand};
 use std::fs;
@@ -27,6 +29,8 @@ enum Command {
         right_path: PathBuf,
     },
     Compress { path: PathBuf },
+    Graph { path: PathBuf },
+    Walk(WalkArgs),
 }
 
 #[derive(Debug, Args)]
@@ -47,6 +51,17 @@ struct TransformArgs {
 
     #[arg(long)]
     diminish: Option<f32>,
+}
+
+#[derive(Debug, Args)]
+struct WalkArgs {
+    path: PathBuf,
+
+    #[arg(long)]
+    steps: usize,
+
+    #[arg(long, default_value_t = 0)]
+    seed: u64,
 }
 
 impl Cli {
@@ -108,6 +123,22 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let candidates = repeated_patterns(&motif);
 
             println!("{}", format_compression_candidates(&candidates));
+        }
+        Command::Graph { path } => {
+            let input = fs::read_to_string(path)?;
+            let motif = parse_motif(&input)?;
+            let graph = transition_graph(&motif);
+
+            println!("{}", format_transition_graph(&graph));
+        }
+        Command::Walk(args) => {
+            let input = fs::read_to_string(args.path)?;
+            let motif = parse_motif(&input)?;
+            let graph = transition_graph(&motif);
+            let start = motif.notes.last().map(|note| note.pitch);
+            let walk = weighted_walk(&graph, start, args.steps, args.seed);
+
+            println!("{}", format_pitch_walk(&walk));
         }
     }
 
