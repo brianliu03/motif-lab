@@ -1,14 +1,16 @@
 use crate::algorithms::compression::repeated_patterns;
 use crate::algorithms::graph::{transition_graph, weighted_walk};
 use crate::algorithms::similarity::compare_motifs;
-use crate::algorithms::transform::{augment, diminish, invert, retrograde, transpose};
-use crate::core::Pitch;
+use crate::algorithms::transform::{
+    augment, diminish, invert_with_spelling, retrograde, transpose_with_spelling,
+};
+use crate::core::{Pitch, SpellingPolicy};
 use crate::io::parse::parse_motif;
 use crate::io::print::{
     format_analysis, format_compression_candidates, format_motif, format_pitch_walk,
     format_similarity, format_transition_graph,
 };
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::fs;
 use std::path::PathBuf;
 
@@ -51,6 +53,9 @@ struct TransformArgs {
 
     #[arg(long)]
     diminish: Option<f32>,
+
+    #[arg(long = "spelling-policy", value_enum, default_value = "preserve-context")]
+    spelling_policy: CliSpellingPolicy,
 }
 
 #[derive(Debug, Args)]
@@ -62,6 +67,23 @@ struct WalkArgs {
 
     #[arg(long, default_value_t = 0)]
     seed: u64,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum CliSpellingPolicy {
+    PreserveContext,
+    Flats,
+    Sharps,
+}
+
+impl CliSpellingPolicy {
+    fn to_core(self) -> SpellingPolicy {
+        match self {
+            Self::PreserveContext => SpellingPolicy::PreserveContext,
+            Self::Flats => SpellingPolicy::Flats,
+            Self::Sharps => SpellingPolicy::Sharps,
+        }
+    }
 }
 
 impl Cli {
@@ -80,9 +102,10 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Command::Transform(args) => {
             let input = fs::read_to_string(args.path)?;
             let mut motif = parse_motif(&input)?;
+            let spelling_policy = args.spelling_policy.to_core();
 
             if let Some(semitones) = args.transpose {
-                motif = transpose(&motif, semitones);
+                motif = transpose_with_spelling(&motif, semitones, spelling_policy);
             }
 
             if args.retrograde {
@@ -90,7 +113,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             }
 
             if let Some(axis_pitch) = args.invert {
-                motif = invert(&motif, axis_pitch);
+                motif = invert_with_spelling(&motif, axis_pitch, spelling_policy);
             }
 
             if let Some(factor) = args.augment {

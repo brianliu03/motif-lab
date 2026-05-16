@@ -129,7 +129,12 @@ fn format_alignment_row<'a>(
 }
 
 fn format_note(note: &Note) -> String {
-    format!("{}:{}", note.pitch, note.duration)
+    let pitch = note
+        .spelling
+        .map(|spelling| spelling.format_pitch(note.pitch))
+        .unwrap_or_else(|| note.pitch.to_string());
+
+    format!("{}:{}", pitch, note.duration)
 }
 
 fn format_pattern(pattern: &Pattern) -> String {

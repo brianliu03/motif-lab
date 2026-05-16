@@ -1,6 +1,5 @@
-use crate::core::{Beats, Motif, Note, Pitch};
+use crate::core::{parse_pitch_with_spelling, Beats, Motif, Note};
 use std::fmt;
-use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
@@ -49,8 +48,8 @@ fn parse_note_token(token: &str, start: Beats) -> Result<Note, ParseError> {
         .split_once(':')
         .ok_or_else(|| ParseError::MissingDuration(token.to_string()))?;
 
-    let pitch =
-        Pitch::from_str(pitch_text).map_err(|_| ParseError::InvalidPitch(pitch_text.to_string()))?;
+    let (pitch, spelling) = parse_pitch_with_spelling(pitch_text)
+        .map_err(|_| ParseError::InvalidPitch(pitch_text.to_string()))?;
 
     let duration = duration_text
         .parse::<f32>()
@@ -60,7 +59,7 @@ fn parse_note_token(token: &str, start: Beats) -> Result<Note, ParseError> {
         return Err(ParseError::NonPositiveDuration(duration));
     }
 
-    Ok(Note::new(pitch, start, Beats(duration)))
+    Ok(Note::new(pitch, start, Beats(duration)).with_spelling(spelling))
 }
 
 #[cfg(test)]
@@ -78,4 +77,3 @@ mod tests {
         assert_eq!(motif.total_duration(), Beats(3.5));
     }
 }
-

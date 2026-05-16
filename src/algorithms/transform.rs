@@ -1,4 +1,4 @@
-use crate::core::{Beats, Motif, Pitch};
+use crate::core::{Beats, Motif, Pitch, PitchSpelling, SpellingPolicy};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContourStep {
@@ -37,6 +37,16 @@ pub fn contour(motif: &Motif) -> Vec<ContourStep> {
 }
 
 pub fn transpose(motif: &Motif, semitones: i32) -> Motif {
+    transpose_with_spelling(motif, semitones, SpellingPolicy::PreserveContext)
+}
+
+pub fn transpose_with_spelling(
+    motif: &Motif,
+    semitones: i32,
+    spelling_policy: SpellingPolicy,
+) -> Motif {
+    let context = spelling_context(motif);
+
     Motif::new(
         motif
             .notes
@@ -44,6 +54,8 @@ pub fn transpose(motif: &Motif, semitones: i32) -> Motif {
             .map(|note| {
                 let mut transformed = note.clone();
                 transformed.pitch.0 += semitones;
+                transformed.spelling =
+                    Some(transformed.pitch.spelling(spelling_policy, &context));
                 transformed
             })
             .collect(),
@@ -67,6 +79,16 @@ pub fn retrograde(motif: &Motif) -> Motif {
 }
 
 pub fn invert(motif: &Motif, axis_pitch: Pitch) -> Motif {
+    invert_with_spelling(motif, axis_pitch, SpellingPolicy::PreserveContext)
+}
+
+pub fn invert_with_spelling(
+    motif: &Motif,
+    axis_pitch: Pitch,
+    spelling_policy: SpellingPolicy,
+) -> Motif {
+    let context = spelling_context(motif);
+
     Motif::new(
         motif
             .notes
@@ -74,6 +96,8 @@ pub fn invert(motif: &Motif, axis_pitch: Pitch) -> Motif {
             .map(|note| {
                 let mut transformed = note.clone();
                 transformed.pitch.0 = (2 * axis_pitch.0) - note.pitch.0;
+                transformed.spelling =
+                    Some(transformed.pitch.spelling(spelling_policy, &context));
                 transformed
             })
             .collect(),
@@ -103,10 +127,15 @@ fn scale_time(motif: &Motif, factor: f32) -> Motif {
     )
 }
 
+fn spelling_context(motif: &Motif) -> Vec<Option<PitchSpelling>> {
+    motif.notes.iter().map(|note| note.spelling).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::io::parse::parse_motif;
+    use crate::io::print::format_motif;
 
     #[test]
     fn extracts_intervals_in_semitones() {
@@ -146,12 +175,36 @@ mod tests {
     }
 
     #[test]
+    fn transpose_preserves_flat_context_by_default() {
+        let motif = parse_motif("Ab4:4 F4:2 Eb4:3 Db4:2").unwrap();
+        let transformed = transpose(&motif, 5);
+
+        assert_eq!(format_motif(&transformed), "Db5:4 Bb4:2 Ab4:3 Gb4:2");
+    }
+
+    #[test]
+    fn transpose_can_prefer_sharp_spellings() {
+        let motif = parse_motif("Ab4:4 F4:2 Eb4:3 Db4:2").unwrap();
+        let transformed = transpose_with_spelling(&motif, 5, SpellingPolicy::Sharps);
+
+        assert_eq!(format_motif(&transformed), "C#5:4 A#4:2 G#4:3 F#4:2");
+    }
+
+    #[test]
     fn retrograde_preserves_total_duration() {
         let motif = parse_motif("C4:1 D4:1 G4:2").unwrap();
         let transformed = retrograde(&motif);
 
         assert_eq!(transformed.total_duration(), motif.total_duration());
         assert_eq!(transformed.notes[0].pitch, motif.notes[2].pitch);
+    }
+
+    #[test]
+    fn retrograde_preserves_original_pitch_spelling() {
+        let motif = parse_motif("Ab4:4 F4:2 Eb4:3 Db4:2").unwrap();
+        let transformed = retrograde(&motif);
+
+        assert_eq!(format_motif(&transformed), "Db4:2 Eb4:3 F4:2 Ab4:4");
     }
 
     #[test]
@@ -163,6 +216,15 @@ mod tests {
         for (original, inverted) in motif.notes.iter().zip(transformed.notes.iter()) {
             assert_eq!(axis.0 - original.pitch.0, inverted.pitch.0 - axis.0);
         }
+    }
+
+    #[test]
+    fn inversion_uses_requested_spelling_policy() {
+        let motif = parse_motif("Ab4:1 C4:1").unwrap();
+        let axis = "F4".parse().unwrap();
+        let transformed = invert_with_spelling(&motif, axis, SpellingPolicy::Flats);
+
+        assert_eq!(format_motif(&transformed), "D4:1 Bb4:1");
     }
 
     #[test]
