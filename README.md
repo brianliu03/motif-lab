@@ -2,8 +2,6 @@
 
 Motif Lab is a Rust-based algorithmic composition engine for musical thinking away from the instrument. It treats short musical ideas as structured data, then applies small, inspectable algorithms for analysis, transformation, comparison, compression, and graph-based continuation.
 
-The project is intentionally CLI-first and library-first. It is not a DAW, audio engine, notation system, or web app. The first goal is a clean Rust core that makes musical structure easy to represent, test, and transform.
-
 ## Current Motif Format
 
 Motifs are plain text files made of whitespace-separated notes:
@@ -22,7 +20,7 @@ For example, `C4:1 D4:0.5 E4:2` becomes three notes starting at beats `0`, `1`, 
 
 ## System Design
 
-The engine is organized as a simple pipeline:
+The engine is organized as follows:
 
 ```text
 .motif text
@@ -45,8 +43,6 @@ io::print
 CLI output
 ```
 
-The CLI is intentionally thin. It reads files, calls the parser, dispatches to one algorithm module, and prints a human-readable result. Most musical behavior lives in pure functions that accept `&Motif` and return a new value or analysis result.
-
 ## Data Model
 
 The core model is deliberately small:
@@ -57,6 +53,7 @@ Motif
 
 Note
   pitch: Pitch
+  spelling: Option<PitchSpelling>
   start: Beats
   duration: Beats
   velocity: u8
@@ -64,11 +61,14 @@ Note
 Pitch
   i32 MIDI-like semitone number
 
+PitchSpelling
+  letter name plus optional sharp or flat for display
+
 Beats
   f32 beat value
 ```
 
-`Pitch` stores numeric pitch identity, not notation spelling. For example, `Db4` and `C#4` both parse to the same pitch number. This makes interval math, comparison, graph nodes, and transformations straightforward, but it means the printer currently emits a canonical spelling rather than preserving every enharmonic spelling from the source file.
+`Pitch` stores numeric pitch identity, while `PitchSpelling` preserves the written note name when available. For example, `Db4` and `C#4` both parse to the same sounding pitch number, but the original spelling can still be used when printing motifs back to text.
 
 ## Component Layout
 
@@ -124,7 +124,13 @@ Current transformations include:
 - `augment`: multiply start times and durations
 - `diminish`: divide start times and durations
 
-The transformations return new motifs instead of mutating the input in place.
+Transformations that do not change pitch class, such as `retrograde`, `augment`, and `diminish`, preserve the original spelling metadata. Pitch-changing transformations, such as `transpose` and `invert`, keep sounding pitch correctness and choose output spelling with a policy:
+
+- `preserve-context`: infer flats or sharps from the source motif
+- `flats`: prefer flat spellings
+- `sharps`: prefer sharp spellings
+
+The default policy is `preserve-context`. The transformations return new motifs instead of mutating the input in place.
 
 ### Similarity
 
@@ -176,6 +182,7 @@ E4 -> D4 (1)
 ```bash
 cargo run -- analyze examples/simple.motif
 cargo run -- transform examples/simple.motif --transpose 5
+cargo run -- transform examples/simple.motif --transpose 5 --spelling-policy flats
 cargo run -- transform examples/simple.motif --retrograde
 cargo run -- transform examples/simple.motif --invert C4
 cargo run -- compare examples/passing_tone_a.motif examples/passing_tone_b.motif
@@ -184,16 +191,3 @@ cargo run -- graph examples/simple.motif
 cargo run -- walk examples/simple.motif --steps 8 --seed 42
 ```
 
-## Design Principles
-
-- Keep musical data structures explicit and testable.
-- Prefer pure functions for algorithms and transformations.
-- Keep the CLI as a small orchestration layer.
-- Add musical interpretation cautiously; algorithms suggest structure, they do not determine meaning.
-- Avoid large dependencies until a concrete algorithmic need appears.
-
-## Roadmap
-
-The near-term MVP is a Rust CLI that can read a simple motif file, analyze interval and contour structure, apply basic transformations, compare motifs using dynamic programming, and detect repeated fragments for compression.
-
-Later directions may include MIDI export, richer graph composition, a small motif DSL, constraint-based search, and travel sketch metadata. Those layers should build on the core engine rather than replacing it.
