@@ -190,4 +190,3 @@ cargo run -- compress examples/repeated.motif
 cargo run -- graph examples/simple.motif
 cargo run -- walk examples/simple.motif --steps 8 --seed 42
 ```
-
